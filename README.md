@@ -1,6 +1,6 @@
 # WP Flex CSS
 
-Directly edit your CSS files in WP-Admin without additional <style> tags.
+Directly edit your CSS files in WP-Admin without additional `<style></style>` tags.
 
 ## Description
 
