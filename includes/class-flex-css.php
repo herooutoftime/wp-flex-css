@@ -119,6 +119,13 @@ class Flex_Css {
 		 */
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'public/class-flex-css-public.php';
 
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-flex-css-helper.php';
+
+		if(!class_exists('WP_List_Table')){
+			require_once( ABSPATH . 'wp-admin/includes/class-wp-list-table.php' );
+		}
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-flex-css-admin-table.php';
+
 		$this->loader = new Flex_Css_Loader();
 
 	}
@@ -156,6 +163,12 @@ class Flex_Css {
 
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'add_options_page' );
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'register_setting' );
+
+		$this->loader->add_action( 'add_option_flex_css_data', $plugin_admin, 'update_option', 10, 2 );
+		$this->loader->add_action( 'update_option_flex_css_data', $plugin_admin, 'update_option', 10, 2 );
+
+		$this->loader->add_action( 'admin_post_flex_restore', $plugin_admin, 'flex_restore' );
+		$this->loader->add_action( 'wp_ajax_flex_css_getvars', $plugin_admin, 'flex_css_getvars' );
 	}
 
 	/**

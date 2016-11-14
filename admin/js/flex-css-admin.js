@@ -1,32 +1,124 @@
 (function( $ ) {
 	'use strict';
 
-	/**
-	 * All of the code for your admin-facing JavaScript source
-	 * should reside in this file.
-	 *
-	 * Note: It has been assumed you will write jQuery code here, so the
-	 * $ function reference has been prepared for usage within the scope
-	 * of this function.
-	 *
-	 * This enables you to define handlers, for when the DOM is ready:
-	 *
-	 * $(function() {
-	 *
-	 * });
-	 *
-	 * When the window is loaded:
-	 *
-	 * $( window ).load(function() {
-	 *
-	 * });
-	 *
-	 * ...and/or other possibilities.
-	 *
-	 * Ideally, it is not considered best practise to attach more than a
-	 * single DOM-ready or window-load handler for a particular page.
-	 * Although scripts in the WordPress core, Plugins and Themes may be
-	 * practising this, we should strive to set a better example in our own work.
-	 */
+	$(function() {
+		var FlexCssTableView,
+			FlexCssTableNavView,
+			FlexCssTableRowView,
 
+			FlexCssModel,
+			FlexCssColl,
+
+			flexCssTableNavView,
+			flexCssTableRowView,
+			flexCssTableView;
+
+		FlexCssModel = Backbone.Model.extend({
+			id: null,
+			property: null,
+			value: null,
+			toJSON: function() {
+				var data;
+				var json = Backbone.Model.prototype.toJSON.call(this);
+				_.each(json, function(value, key)
+				{
+					data = key;
+				}, this);
+				return data;
+			}
+		});
+		FlexCssColl = Backbone.Collection.extend({
+			model: FlexCssModel,
+			url: ajaxurl,
+			parse: function(response) {
+				return response;
+			}
+		});
+
+		FlexCssTableView = Backbone.View.extend({
+			events: {
+				"focus .autocomplete": 'getAutocomplete',
+				"keydown .autocomplete": 'fetchCollection'
+			},
+			initialize: function () {
+				this.coll = new FlexCssColl();
+				this.collectionFetched = false;
+				console.log('Inside Init');
+
+				this.render = _.wrap(this.render, function(render) {
+					this.beforeRender();
+					render();
+					this.afterRender();
+				});
+
+				this.render();
+			},
+			render: function () {
+				console.log('Inside render');
+				return this;
+			},
+			beforeRender: function () {
+				console.log("Before render");
+			},
+			afterRender: function () {
+				console.log("After render");
+			},
+			fetchCollection: function() {
+				if (this.collectionFetched) return;
+				this.coll.fetch({
+					data: {
+						action: 'flex_css_getvars'
+					}
+				});
+				this.collectionFetched = true;
+			},
+
+			getAutocomplete: function () {
+				$(".autocomplete").autocomplete({
+					source: ajaxurl + '?action=flex_css_getvars',
+					//source: this.coll.toJSON(),
+					minLength : 2
+					//,response: function(event, ui) {
+					//	console.log(this.coll);
+					//}
+				});
+			}
+		});
+
+		FlexCssTableNavView = Backbone.View.extend({
+			events: {
+				"click .add-row": "addRow",
+			},
+			addRow: function() {
+				this.template();
+				event.preventDefault();
+			},
+			template: function() {
+				var row_index = $('table.flex-css-table tbody tr').length;
+				$("table.flex-css-table tbody tr:first").clone().find("input").each(function() {
+					$(this).attr({
+						'name': function(_, name) { return 'flex_css_data[' + row_index + '][' + $(this).attr('data-colname') + ']' },
+						'value': function(_, name) { return $(this).attr('data-colname') == 'id' ? row_index : ''; }
+					});
+				}).end().appendTo("table.flex-css-table");
+			}
+		});
+
+		FlexCssTableRowView = Backbone.View.extend({
+			events: {
+				"click .row-actions .delete a": "deleteRow"
+			},
+			deleteRow: function() {
+				console.log('deleteRow!');
+				console.log(this);
+				console.log(event);
+				$(event.target).closest('tr').remove();
+				event.preventDefault();
+			}
+		});
+
+		flexCssTableNavView = new FlexCssTableNavView({ el: $('.tablenav') });
+		flexCssTableRowView = new FlexCssTableRowView({ el: $('table.flex-css-table') });
+		//flexCssTableView = new FlexCssTableView({ el: $('table.flex-css-table') });
+	});
 })( jQuery );
