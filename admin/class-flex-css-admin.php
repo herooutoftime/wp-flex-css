@@ -42,6 +42,8 @@ class Flex_Css_Admin {
 
 	private $option_name = 'flex_css';
 	private $configs = array();
+	private $perms = array();
+	private $matches = array();
 
 	/**
 	 * Initialize the class and set its properties.
@@ -55,9 +57,12 @@ class Flex_Css_Admin {
 		$this->plugin_name = $plugin_name;
 		$this->version = $version;
 		$this->configs = array(
+			'file' => Flex_Css_Helper::get_file(),
 			'versioning' => (bool) get_option('flex_css_versioning'),
 			'simulate' => (bool) get_option('flex_css_simulate'),
 		);
+		$this->check_perms();
+		$this->matches = Flex_Css_Helper::get_matches();
 	}
 
 	/**
@@ -66,21 +71,9 @@ class Flex_Css_Admin {
 	 * @since    1.0.0
 	 */
 	public function enqueue_styles() {
-
-		/**
-		 * This function is provided for demonstration purposes only.
-		 *
-		 * An instance of this class should be passed to the run() function
-		 * defined in Flex_Css_Loader as all of the hooks are defined
-		 * in that particular class.
-		 *
-		 * The Flex_Css_Loader will then create the relationship
-		 * between the defined hooks and the functions defined in this
-		 * class.
-		 */
-
+		wp_enqueue_style('dashicons');
+		wp_enqueue_style('wp-color-picker');
 		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/flex-css-admin.css', array(), $this->version, 'all' );
-
 	}
 
 	/**
@@ -89,7 +82,7 @@ class Flex_Css_Admin {
 	 * @since    1.0.0
 	 */
 	public function enqueue_scripts() {
-		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/flex-css-admin.js', array( 'jquery', 'backbone', 'jquery-ui-autocomplete' ), $this->version, false );
+		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/flex-css-admin.js', array( 'jquery', 'backbone', 'jquery-ui-autocomplete', 'wp-color-picker' ), $this->version, false );
 		wp_localize_script( $this->plugin_name, 'FlexCSS', array('ajaxurl' => admin_url('admin-ajax.php')) );
 	}
 
@@ -111,13 +104,22 @@ class Flex_Css_Admin {
 	public function register_setting()
 	{
 		add_settings_field(
-			$this->option_name . '_versioning',
-			__( 'Enable versioning', 'flex-css' ),
-			array( $this, $this->option_name . '_versioning_cb' ),
+			$this->option_name . '_file',
+			__( 'Choose file', 'flex-css' ),
+			array( $this, $this->option_name . '_file_cb' ),
 			$this->plugin_name,
 			$this->option_name . '_general',
-			array( 'label_for' => $this->option_name . '_versioning' )
+			array( 'label_for' => $this->option_name . '_file' )
 		);
+
+//		add_settings_field(
+//			$this->option_name . '_versioning',
+//			__( 'Enable versioning', 'flex-css' ),
+//			array( $this, $this->option_name . '_versioning_cb' ),
+//			$this->plugin_name,
+//			$this->option_name . '_general',
+//			array( 'label_for' => $this->option_name . '_versioning' )
+//		);
 
 		add_settings_field(
 			$this->option_name . '_simulate',
@@ -143,9 +145,15 @@ class Flex_Css_Admin {
 			array( $this, $this->option_name . '_general_cb' ),
 			$this->plugin_name
 		);
+		register_setting( $this->plugin_name, $this->option_name . '_file', array( $this, $this->option_name . '_sanitize_file' )  );
 		register_setting( $this->plugin_name, $this->option_name . '_data', array( $this, $this->option_name . '_sanitize_data' ) );
 		register_setting( $this->plugin_name, $this->option_name . '_versioning' );
 		register_setting( $this->plugin_name, $this->option_name . '_simulate' );
+	}
+
+	public function flex_css_file_cb()
+	{
+		echo Flex_Css_Helper::get_css_files_select();
 	}
 
 	public function flex_css_versioning_cb()
@@ -162,13 +170,13 @@ class Flex_Css_Admin {
 
 	public function flex_css_hits_cb()
 	{
-		$results = $this->get_matches();
+		$results = $this->matches;
 		$css_vars = array_column(maybe_unserialize(get_option('flex_css_data')), 'property');
 		array_walk($results['vars'], function($var, $idx, $css_vars) {
 			$used_bg = '';
 			if(in_array($var, $css_vars))
 				$used_bg = ' style="background:#3b9b7c;color:white"';
-			echo "<code {$used_bg}>{$var}</code>";
+			echo "<code {$used_bg}>{$var}</code>, ";
 		}, $css_vars);
 		echo '<p class="description">' . __('Green variables are in use', 'flex-css') . '</p>';
 	}
@@ -181,10 +189,41 @@ class Flex_Css_Admin {
 	}
 	public function flex_css_sanitize_data($data)
 	{
-		array_walk($data, function(&$item) {
+		array_walk($data, function(&$item, $idx, $css_vars) {
+			if(!in_array($item['property'], $css_vars)) {
+				$this->add_messages(array(
+					'flex-css-error-no-var',
+					'flex-css-error-no-var',
+					sprintf(__('<code>%1$s</code> was not found in CSS. Add <code>/*! @edit:%1$s*/</code>', 'flex-css'), $item['property']),
+					'error'
+				));
+			}
+			if($item['value'] == '' || empty($item['value'])) {
+				$this->add_messages(array(
+					'flex-css-error-empty-val',
+					'flex-css-error-empty-val',
+					sprintf(__('<code>%1$s</code> has no value. Add a value in the settings below.', 'flex-css'), $item['property']),
+					'error'
+				));
+			}
+
 			$item['value'] = addslashes($item['value']);
-		});
+		}, $this->matches['vars']);
 		return $data;
+	}
+
+	public function flex_css_sanitize_file($file)
+	{
+		if($file != '' || !empty($file) || !file_exists($file))
+			return $file;
+
+		$this->add_messages(array(
+			'flex-css-error-empty-file',
+			'flex-css-error-empty-file',
+			__('No CSS file chosen.', 'flex-css'),
+			'error'
+		));
+		return null;
 	}
 
 	public function update_option($first, $second)
@@ -193,13 +232,34 @@ class Flex_Css_Admin {
 		if($first == 'flex_css_data')
 			$mode = 'create';
 
-		$this->edit_css();
+		if(!$this->check_perms()) {
+			$this->add_messages(array(
+				'flex-css-error-perms',
+				'flex-css-error-perms',
+				__('Please make sure your CSS file exists, is writeable and its folder is writeable!', 'flex-css'),
+				'error'
+			));
+			return;
+		}
+		if($this->edit_css())
+			$this->add_messages(array(
+				'flex-css-success-bup',
+				'flex-css-success-bup',
+				__('Backup of original CSS file was succesfully created', 'flex-css'),
+				'updated'
+			));
 	}
 
 	public function flex_css_getvars()
 	{
 		$results = array();
-		foreach (array_column(maybe_unserialize(get_option('flex_css_data')), 'property') as $result) {
+//		$items = array_column(maybe_unserialize(get_option('flex_css_data')), 'property');
+		$items = $this->get_matches()['vars'];
+		foreach ($items as $result) {
+			if(!empty($_GET['term']) || $_GET['term'] != '')
+				if (strpos($result, $_GET['term']) === false)
+					continue;
+
 			$results[] = array(
 				'label' => $result,
 				'value' => $result
@@ -211,7 +271,7 @@ class Flex_Css_Admin {
 
 	public function get_matches()
 	{
-		$css_contents = file_get_contents(get_template_directory() . '/style.css');
+		$css_contents = file_get_contents($this->configs['file']);
 		$orig_contents = $css_contents;
 		$strip_whitespace = false;
 		if($strip_whitespace)
@@ -231,7 +291,7 @@ class Flex_Css_Admin {
 
 	public function edit_css()
 	{
-		$css_contents = file_get_contents(get_template_directory() . '/style.css');
+		$css_contents = file_get_contents($this->configs['file']);
 		$orig_contents = $css_contents;
 		$strip_whitespace = false;
 		if($strip_whitespace)
@@ -256,7 +316,7 @@ class Flex_Css_Admin {
 			if(!empty($css[$matches[1]])) {
 				$return = "@edit: {$matches[1]}*/{$attribute}: {$css[$matches[1]]};";
 			} else {
-				$return = "@edit: {$matches[1]}*/{$attribute}: {$value};";
+				$return = "@edit: {$matches[1]}*/{$attribute}:{$value};";
 			}
 			return $return;
 		}, $css_contents);
@@ -264,20 +324,55 @@ class Flex_Css_Admin {
 		if($this->configs['simulate'])
 			return;
 
-		file_put_contents(get_template_directory() . '/style.css', $css_contents);
-		if(file_exists(get_template_directory() . '/style.orig.css'))
-			return;
-		if($this->configs['versioning'])
-			file_put_contents(get_template_directory() . '/style.orig.css', $orig_contents);
+		if(Flex_Css_Helper::backup())
+			file_put_contents($this->configs['file'], $css_contents);
+
 	}
 
 	public function flex_restore()
 	{
-		if(file_exists(get_template_directory() . '/style.orig.css') && is_writable(get_template_directory() . '/style.css')) {
-			rename(get_template_directory() . '/style.css', get_template_directory() . '/style.latest.css');
-			rename(get_template_directory() . '/style.orig.css', get_template_directory() . '/style.css');
+		if(file_exists(get_template_directory() . '/style.orig.css') && is_writable($this->configs['file'])) {
+			rename($this->configs['file'], get_template_directory() . '/style.latest.css');
+			rename(get_template_directory() . '/style.orig.css', $this->configs['file']);
 		}
 		wp_redirect( $_SERVER['HTTP_REFERER'] );
 		exit();
+	}
+
+	public function check_perms()
+	{
+		$this->perms = array(
+			'exist' => file_exists($this->configs['file']),
+			'write' => is_writable($this->configs['file']),
+			'dir_write' => is_writeable(get_template_directory()),
+		);
+		$this->perms['pass'] = count(array_unique($this->perms)) === 1;
+//		if(!$this->perms['pass']) {
+//			$this->add_messages(array(
+//				'flex-css-error-perms',
+//				'flex-css-error-perms',
+//				__('Please make sure your CSS file exists, is writeable and its folder is writeable!', 'flex-css'),
+//				'error'
+//			));
+//		}
+		return count(array_unique($this->perms)) === 1;
+	}
+
+	public function add_messages($msg)
+	{
+		list($setting, $code, $message, $type) = $msg;
+		add_settings_error($setting, $code, $message, $type);
+		return;
+	}
+
+	public function admin_notices()
+	{
+		settings_errors();
+		$screen = get_current_screen();
+		if(!$this->perms['pass']) { ?>
+			<div class="notice notice-error is-dismissible">
+				<p><?php _e('Please make sure your CSS file exists, is writeable and its folder is writeable!', 'flex-css'); ?></p>
+			</div>
+		<?php }
 	}
 }

@@ -169,6 +169,8 @@ class Flex_Css {
 
 		$this->loader->add_action( 'admin_post_flex_restore', $plugin_admin, 'flex_restore' );
 		$this->loader->add_action( 'wp_ajax_flex_css_getvars', $plugin_admin, 'flex_css_getvars' );
+
+//		$this->loader->add_action( 'admin_notices', $plugin_admin, 'admin_notices' );
 	}
 
 	/**

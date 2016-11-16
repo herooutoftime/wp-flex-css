@@ -5,10 +5,12 @@ class Flex_Css_Admin_Table extends WP_List_Table {
 		array(
 			'id' => '0',
 			'property' => '',
+			'type' => '',
 			'value' => '',
 		)
 	);
 
+	private $matches = array();
 	/**
 	* Constructor, we override the parent to pass our own arguments
 	* We usually focus on three parameters: singular and plural labels, as well as whether the class supports AJAX.
@@ -19,12 +21,13 @@ class Flex_Css_Admin_Table extends WP_List_Table {
 			'plural' => 'wp_list_test_links', //plural label, also this well be one of the table css class
 			'ajax'   => false //We won't support Ajax for this table
 		) );
+		$this->matches = Flex_Css_Helper::get_matches();
 	}
 
 	function extra_tablenav( $which ) {
 		if ( $which == "top" ){
 			//The code that goes before the table is here
-			echo "<button class='button button-primary add-row' data-event='add-row'>Add new row</button>";
+//			echo "<button class='button button-primary add-row' data-event='add-row'>Add new row</button>";
 		}
 		if ( $which == "bottom" ){
 			//The code that goes after the table is there
@@ -36,6 +39,7 @@ class Flex_Css_Admin_Table extends WP_List_Table {
 		return $columns= array(
 			'id' => __('ID'),
 			'property' => __('Property'),
+			'type' => __('Type'),
 			'value' => __('Value'),
 		);
 	}
@@ -60,7 +64,8 @@ class Flex_Css_Admin_Table extends WP_List_Table {
 	function get_sortable_columns() {
 		$sortable_columns = array(
 			'id' => array('id', false),
-			'property'     => array('property',false),     //true means it's already sorted
+			'property'     => array('property',false),
+			'type' => array('type', false),
 			'value'    => array('value',false),
 		);
 		return $sortable_columns;
@@ -70,6 +75,7 @@ class Flex_Css_Admin_Table extends WP_List_Table {
 		switch($column_name){
 			case 'id':
 			case 'property':
+			case 'type':
 			case 'value':
 				return $item[$column_name];
 			default:
@@ -81,19 +87,34 @@ class Flex_Css_Admin_Table extends WP_List_Table {
 		echo '<input name="flex_css_data['.$item['id'].'][id]" data-colname="id" type="text" value="'.stripslashes($item['id']).'" />';
 	}
 	function column_property($item) {
-		$actions = array(
-			'delete'    => sprintf('<a href="#">Delete</a>',$_REQUEST['page'],'delete',$item['id']),
-		);
-
+		$icon_state = Flex_Css_Helper::get_match($item['property']) ? 'yes' : 'no';
+		$icon_color = Flex_Css_Helper::get_match($item['property']) ? '#46b450' : '#dc3232';
 		//Return the title contents
-		return sprintf('%1$s %2$s',
-			'<input class="autocomplete" name="flex_css_data['.$item['id'].'][property]" data-colname="property" type="text" value="'.stripslashes($item['property']).'" />',
-			$this->row_actions($actions, true)
+		return sprintf('%1$s %2$s %3$s',
+			'<span class="delete-row dashicons dashicons-trash" style="padding:3px 0;color:#dc3232"></span>'
+			,'<input class="autocomplete" name="flex_css_data['.$item['id'].'][property]" data-colname="property" type="text" value="'.stripslashes($item['property']).'" />'
+			,'<span class="dashicons dashicons-'.$icon_state.'" style="padding:3px 0;color:'.$icon_color.'"></span>'
+//			,$this->row_actions($actions, true)
 		);
-//		echo '<input class="autocomplete" name="flex_css_data['.$item['id'].'][property]" data-colname="property" type="text" value="'.stripslashes($item['property']).'" />';
+	}
+	function column_type($item) {
+		$types = array(
+			'text' => 'Text',
+			'colorpicker' => 'Colorpicker',
+		);
+		$opts = array();
+		foreach ($types as $value => $display) {
+			$selected = selected( $item['type'], $value, false );
+			$opts[] = "<option {$selected} value='{$value}'>{$display}</option>";
+		}
+		echo '<select class="changetype" name="flex_css_data['.$item['id'].'][type]" data-colname="type">'. implode('', $opts) .'</select>';
 	}
 	function column_value($item) {
-		echo '<input name="flex_css_data['.$item['id'].'][value]" data-colname="value" type="text" value="'.stripslashes($item['value']).'" />';
+		return sprintf('%1$s %2$s',
+			'<input class="input-'.$item['type'].'" name="flex_css_data['.$item['id'].'][value]" data-colname="value" type="text" value="'.stripslashes($item['value']).'" />'
+			,''
+//			,'<span class="delete-row dashicons dashicons-yes" style="padding:3px 0;color:#46b450"></span>'
+		);
 	}
 
 	function get_table_classes() {

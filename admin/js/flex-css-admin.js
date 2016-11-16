@@ -13,6 +13,8 @@
 			flexCssTableRowView,
 			flexCssTableView;
 
+		$.ajaxSetup({ cache: false });
+
 		FlexCssModel = Backbone.Model.extend({
 			id: null,
 			property: null,
@@ -38,7 +40,8 @@
 		FlexCssTableView = Backbone.View.extend({
 			events: {
 				"focus .autocomplete": 'getAutocomplete',
-				"keydown .autocomplete": 'fetchCollection'
+				"keydown .autocomplete": 'fetchCollection',
+				"change .changetype": 'changeType'
 			},
 			initialize: function () {
 				this.coll = new FlexCssColl();
@@ -55,6 +58,7 @@
 			},
 			render: function () {
 				console.log('Inside render');
+				$('input.input-colorpicker').wpColorPicker();
 				return this;
 			},
 			beforeRender: function () {
@@ -64,7 +68,7 @@
 				console.log("After render");
 			},
 			fetchCollection: function() {
-				if (this.collectionFetched) return;
+				//if (this.collectionFetched) return;
 				this.coll.fetch({
 					data: {
 						action: 'flex_css_getvars'
@@ -72,16 +76,16 @@
 				});
 				this.collectionFetched = true;
 			},
-
 			getAutocomplete: function () {
 				$(".autocomplete").autocomplete({
 					source: ajaxurl + '?action=flex_css_getvars',
-					//source: this.coll.toJSON(),
 					minLength : 2
-					//,response: function(event, ui) {
-					//	console.log(this.coll);
-					//}
 				});
+			},
+			changeType: function() {
+				console.log('Change Type');
+				console.log($(event.target).closest('tr').find('td.column-value input'));
+				$(event.target).closest('tr').find('td.column-value input').wpColorPicker();
 			}
 		});
 
@@ -106,7 +110,7 @@
 
 		FlexCssTableRowView = Backbone.View.extend({
 			events: {
-				"click .row-actions .delete a": "deleteRow"
+				"click .delete-row": "deleteRow"
 			},
 			deleteRow: function() {
 				console.log('deleteRow!');
@@ -119,6 +123,6 @@
 
 		flexCssTableNavView = new FlexCssTableNavView({ el: $('.tablenav') });
 		flexCssTableRowView = new FlexCssTableRowView({ el: $('table.flex-css-table') });
-		//flexCssTableView = new FlexCssTableView({ el: $('table.flex-css-table') });
+		flexCssTableView = new FlexCssTableView({ el: $('table.flex-css-table') });
 	});
 })( jQuery );
