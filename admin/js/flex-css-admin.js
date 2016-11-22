@@ -91,7 +91,7 @@
 
 		FlexCssTableNavView = Backbone.View.extend({
 			events: {
-				"click .add-row": "addRow",
+				"click .add-row": "addRow"
 			},
 			addRow: function() {
 				this.template();
@@ -99,12 +99,23 @@
 			},
 			template: function() {
 				var row_index = $('table.flex-css-table tbody tr').length;
-				$("table.flex-css-table tbody tr:first").clone().find("input").each(function() {
+				var new_row = $("table.flex-css-table tbody tr:first").clone();
+				new_row.find("td").each(function() {
+					if(!$(this).hasClass('column-value'))
+						return;
+
+					$(this).empty().append($('<input />', {
+						'class': 'input-text',
+						'type': 'text',
+						'data-colname': $(this).attr('data-colname').toLowerCase()
+					}));
+				}).find("input, select").each(function() {
 					$(this).attr({
 						'name': function(_, name) { return 'flex_css_data[' + row_index + '][' + $(this).attr('data-colname') + ']' },
 						'value': function(_, name) { return $(this).attr('data-colname') == 'id' ? row_index : ''; }
 					});
-				}).end().appendTo("table.flex-css-table");
+				});
+				$('table.flex-css-table tbody').append(new_row);
 			}
 		});
 
@@ -124,5 +135,73 @@
 		flexCssTableNavView = new FlexCssTableNavView({ el: $('.tablenav') });
 		flexCssTableRowView = new FlexCssTableRowView({ el: $('table.flex-css-table') });
 		flexCssTableView = new FlexCssTableView({ el: $('table.flex-css-table') });
+
+		var codemirror = CodeMirror.fromTextArea(document.getElementById('preview'), {
+			height: '200px'
+			,mode: 'css'
+			,readOnly: true
+			,lineNumbers: true
+			,renderLine: function(cm, lh, el) {
+				console.log(lh);
+			}
+			,foldGutter: true
+			,gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+			//,lineNumberFormatter: function(line) {
+			//	return '#' + line;
+			//}
+		});
+
+		var goToLine = function(line) {
+			console.log(line);
+			var t = codemirror.charCoords({line: line, ch: 0}, "local").top;
+			console.log(t);
+			//var middleHeight = codemirror.getScrollerElement().offsetHeight / 2;
+			codemirror.scrollTo(null, t - 25);
+		};
+
+		$('body').on('click', '.gotoline', function(){
+			goToLine($(this).attr('data-linenumber'));
+		});
+
+		$.ajax({
+			url: ajaxurl,
+			method: 'POST',
+			data: {
+				action: 'flex_css_get_file_contents'
+			}
+		}).done(function(data){
+			var data = JSON.parse(data);
+			var makePanel = function(editable) {
+				var node = document.createElement("div");
+				node.className = 'panel top';
+				node.style = 'padding:5px;background:#f7f7f7;border-bottom: 1px solid #ddd;';
+				var span = node.appendChild(document.createElement("span"));
+				var makeLineLinks = function(editable) {
+					span.textContent = 'Editable line numbers are: ';
+					for (var i = 0, len = editable.length; i < len; i++) {
+						var link = span.appendChild(document.createElement("a"));
+						link.setAttribute('href', '#' + editable[i]);
+						link.className = 'gotoline';
+						link.setAttribute('data-linenumber', editable[i]);
+						link.textContent = editable[i];
+						span.innerHTML += "&nbsp;";
+					}
+					return;
+				};
+				makeLineLinks(editable);
+				return node;
+			};
+			codemirror.setOption('readOnly', data.minified);
+			codemirror.addPanel(makePanel(data.editable), {
+				position: 'top'
+			});
+
+			//codemirror.setOption('renderLine', function(cm, lh, el) {
+			//	console.log(lh);
+			//});
+			codemirror.setValue(data.content);
+			goToLine(data.editable[0]);
+			//codemirror.setValue('lineNumberFormatter')
+		});
 	});
 })( jQuery );

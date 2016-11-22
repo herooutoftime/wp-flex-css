@@ -73,6 +73,8 @@ class Flex_Css_Admin {
 	public function enqueue_styles() {
 		wp_enqueue_style('dashicons');
 		wp_enqueue_style('wp-color-picker');
+		wp_enqueue_style( $this->plugin_name . '_cm', plugin_dir_url( __FILE__ ) . 'bower_components/codemirror/lib/codemirror.css', array(), $this->version );
+		wp_enqueue_style($this->plugin_name . '_cm_fold', plugin_dir_url( __FILE__ ) . 'bower_components/codemirror/addon/fold/foldgutter.css', array(), $this->version);
 		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/flex-css-admin.css', array(), $this->version, 'all' );
 	}
 
@@ -82,6 +84,10 @@ class Flex_Css_Admin {
 	 * @since    1.0.0
 	 */
 	public function enqueue_scripts() {
+		wp_enqueue_script($this->plugin_name . '_cm', plugin_dir_url( __FILE__ ) . 'bower_components/codemirror/lib/codemirror.js', array('jquery', 'backbone'));
+		wp_enqueue_script($this->plugin_name . '_cm_css', plugin_dir_url( __FILE__ ) . 'bower_components/codemirror/mode/css/css.js', array($this->plugin_name . '_cm'));
+		wp_enqueue_script($this->plugin_name . '_cm_fold', plugin_dir_url( __FILE__ ) . 'bower_components/codemirror/addon/fold/foldcode.js', array($this->plugin_name . '_cm'));
+		wp_enqueue_script($this->plugin_name . '_cm_panel', plugin_dir_url( __FILE__ ) . 'bower_components/codemirror/addon/display/panel.js', array($this->plugin_name . '_cm'));
 		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/flex-css-admin.js', array( 'jquery', 'backbone', 'jquery-ui-autocomplete', 'wp-color-picker' ), $this->version, false );
 		wp_localize_script( $this->plugin_name, 'FlexCSS', array('ajaxurl' => admin_url('admin-ajax.php')) );
 	}
@@ -265,6 +271,31 @@ class Flex_Css_Admin {
 				'value' => $result
 			);
 		}
+		echo json_encode($results);
+		wp_die();
+	}
+
+	public function flex_css_get_file_contents()
+	{
+		$file = Flex_Css_Helper::get_file();
+//		$file = get_template_directory() . '/style.min.css';
+		$fh = fopen($file, 'r');
+		$first = fgets($fh);
+		$linecount = 0;
+		$editable = array();
+		while(!feof($fh)) {
+			$line = fgets($fh);
+			$linecount++;
+			if(strpos($line, '@edit:') !== FALSE)
+				$editable[] = $linecount+1;
+		}
+		fclose($fh);
+		$results = array(
+			'minified' => !preg_match('/\\n/', substr($first, 0, 1024)),
+			'linenumbers' => $linecount,
+			'editable' => $editable,
+			'content' => file_get_contents($file),
+		);
 		echo json_encode($results);
 		wp_die();
 	}
