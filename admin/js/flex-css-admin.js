@@ -152,10 +152,7 @@
 		});
 
 		var goToLine = function(line) {
-			console.log(line);
 			var t = codemirror.charCoords({line: line, ch: 0}, "local").top;
-			console.log(t);
-			//var middleHeight = codemirror.getScrollerElement().offsetHeight / 2;
 			codemirror.scrollTo(null, t - 25);
 		};
 
@@ -171,36 +168,74 @@
 			}
 		}).done(function(data){
 			var data = JSON.parse(data);
-			var makePanel = function(editable) {
+			console.log(data);
+			var makeLinkPanel = function(editable) {
 				var node = document.createElement("div");
 				node.className = 'panel top';
-				node.style = 'padding:5px;background:#f7f7f7;border-bottom: 1px solid #ddd;';
-				var span = node.appendChild(document.createElement("span"));
+				node.style = 'padding:5px;background:#f7f7f7;border-bottom: 1px solid #ddd;font-size:11px';
+				var icon = node.appendChild(document.createElement("span"));
+				icon.className = 'dashicons dashicons-yes';
 				var makeLineLinks = function(editable) {
-					span.textContent = 'Editable line numbers are: ';
-					for (var i = 0, len = editable.length; i < len; i++) {
-						var link = span.appendChild(document.createElement("a"));
-						link.setAttribute('href', '#' + editable[i]);
-						link.className = 'gotoline';
-						link.setAttribute('data-linenumber', editable[i]);
-						link.textContent = editable[i];
-						span.innerHTML += "&nbsp;";
+					//span.textContent = 'Editable line numbers are: ';
+
+					for(var key in editable) {
+						var variable = node.appendChild(document.createElement("span"));
+						variable.innerHTML = key + ': ';
+						for(var i = 0, len = editable[key].length; i < len; i++) {
+							var link = node.appendChild(document.createElement("a"));
+							link.setAttribute('href', '#' + editable[key][i]);
+							link.className = 'gotoline';
+							link.setAttribute('data-linenumber', editable[key][i]);
+							link.textContent = editable[key][i];
+							node.innerHTML += "&nbsp;&nbsp;";
+						}
 					}
+
+					//for (var i = 0, len = editable.length; i < len; i++) {
+					//	var link = span.appendChild(document.createElement("a"));
+					//	link.setAttribute('href', '#' + editable[i]);
+					//	link.className = 'gotoline';
+					//	link.setAttribute('data-linenumber', editable[i]);
+					//	link.textContent = editable[i];
+					//	span.innerHTML += "&nbsp;";
+					//}
 					return;
 				};
 				makeLineLinks(editable);
 				return node;
 			};
-			codemirror.setOption('readOnly', data.minified);
-			codemirror.addPanel(makePanel(data.editable), {
-				position: 'top'
-			});
+			var makeReadOnlyPanel = function() {
+				var node = document.createElement("div"), text = [];
+				node.className = 'panel bottom';
+				node.style = 'padding:5px;background:#f7f7f7;border-bottom: 1px solid #ddd;';
+				var icon = node.appendChild(document.createElement("span"));
+				icon.className = 'dashicons dashicons-warning';
+
+				var span = node.appendChild(document.createElement("span"));
+				if(data.minified)
+					text.push('Minified CSS can\'t be edited');
+				if(!data.writable)
+					text.push('CSS is not writable');
+				span.textContent = text.join(', ');
+				return node;
+			};
+			codemirror.setOption('readOnly', data.minified || !data.writable);
+			if(data.minified || !data.writable) {
+				codemirror.addPanel(makeReadOnlyPanel(), {
+					position: 'top'
+				});
+			} else {
+				codemirror.addPanel(makeLinkPanel(data.editable), {
+					position: 'top'
+				});
+			}
 
 			//codemirror.setOption('renderLine', function(cm, lh, el) {
 			//	console.log(lh);
 			//});
 			codemirror.setValue(data.content);
-			goToLine(data.editable[0]);
+			//if(!data.minified)
+			//	goToLine(data.editable[0]);
 			//codemirror.setValue('lineNumberFormatter')
 		});
 	});

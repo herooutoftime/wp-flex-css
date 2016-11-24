@@ -283,26 +283,51 @@ class Flex_Css_Admin {
 		$first = fgets($fh);
 		$linecount = 0;
 		$editable = array();
+		$pattern = '/@edit:\s*([\w]+)\s*\*\//s';
 		while(!feof($fh)) {
 			$line = fgets($fh);
 			$linecount++;
-			if(strpos($line, '@edit:') !== FALSE)
-				$editable[] = $linecount+1;
+//			if(strpos($line, '@edit:') !== FALSE) # SIMPLE VERSION
+			if(preg_match($pattern, $line, $match) === 1) {
+				$editable[$match[1]][] = $linecount + 1;
+			}
 		}
 		fclose($fh);
+
+//		$valid_css = $this->validate_css();
 		$results = array(
 			'minified' => !preg_match('/\\n/', substr($first, 0, 1024)),
+			'writable' => is_writable($file),
 			'linenumbers' => $linecount,
 			'editable' => $editable,
 			'content' => file_get_contents($file),
 		);
+
 		echo json_encode($results);
 		wp_die();
 	}
 
-	public function get_matches()
+	public function validate_css()
 	{
-		$css_contents = file_get_contents($this->configs['file']);
+		$file = Flex_Css_Helper::get_file();
+		$jigsaw_base_url = 'http://jigsaw.w3.org/css-validator/validator';
+		$wsdl_url = 'http://www.w3.org/2005/09/css-validator.wsdl';
+		$query = array(
+			'warning' => 0,
+			'profile' => 'css2',
+			'text' => file_get_contents($file),
+		);
+		$url = $jigsaw_base_url . '?' . http_build_query($query);
+		$soap = new SoapClient($wsdl_url);
+//		var_dump($soap->__getTypes());
+//		var_dump($soap->__getFunctions());
+		die();
+	}
+
+	public function get_matches($css_contents = false)
+	{
+		if(!$css_contents)
+			$css_contents = file_get_contents($this->configs['file']);
 		$orig_contents = $css_contents;
 		$strip_whitespace = false;
 		if($strip_whitespace)
